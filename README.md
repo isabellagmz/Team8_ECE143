@@ -25,5 +25,4 @@
 - warnings
 - jupyter lab(required to run the jupyter notebook)
   
-5. Run the file main.py
-6. You can also run the Jupyter Notebook cell by cell for a better visual experience. Please allow time for processing as the dataset is large(around 15 files, 1 for each day), and cleaning and processing the dataset takes time(Around 5-7 minutes).
+5. Run our Jupyter Notebook. Please allow time for processing as the dataset is large(around 15 files, 1 for each day), and cleaning and processing the dataset takes time(Around 5-7 minutes).
