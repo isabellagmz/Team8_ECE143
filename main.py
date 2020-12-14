@@ -133,3 +133,113 @@ plt.title('Sentiment Distribution',size = 15)
 plt.xlabel('Polarity',size = 15)
 plt.ylabel('Frequency',size = 15)
 plt.show()
+
+#####################################################################
+# Training a CNN model to analyze the tweet sentiment
+#####################################################################
+wordslist = tweet['text'].apply(lambda dfs: dfs.split())
+tweet_words = []
+for sublist in wordslist:
+    for word in sublist:
+        tweet_words.append(word)
+words_count = Counter(tweet_words) # calculate the frequency of each word
+vocab = sorted(words_count, key=words_count.get, reverse=True)
+vocab_to_int = {word:ii for ii, word in enumerate(vocab, 1)}
+
+encoded_tweets = []
+for sublist in wordslist:
+    encoded_tweets.append([vocab_to_int[word] for word in sublist])
+    
+labels = []
+for sen in tweet.sentiment:
+    if sen=='negative':
+        labels.append(1)
+    #elif sen=='neutral':
+    #   labels.append(2)
+    else:
+        labels.append(0)
+        
+tweets_len = Counter([len(sublist) for sublist in wordslist])
+def pad_features(tweets, tweet_length):
+    features = np.zeros((len(tweets), tweet_length), dtype=int)
+    for i, row in enumerate(tweets):
+        if len(row)!=0:
+            features[i, :len(row):] = np.array(row)
+    return features
+
+tweet_length = 60
+padded_features= pad_features(encoded_tweets, tweet_length)
+print(padded_features[:2]) # show the padded features after processing
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import MinMaxScaler
+import tensorflow as tf
+from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropout
+from tensorflow.keras.layers import UpSampling2D
+
+indices = np.arange(len(encoded_tweets))
+ntrain = int(len(encoded_tweets)*0.8)
+ntest = len(encoded_tweets)-ntrain
+# Split 80% into training sets, and 20% into test sets
+x_train, x_test, y_train, y_test, train_ind, test_ind = train_test_split(padded_features, labels, indices, test_size=0.2, random_state=1)
+
+# Scale features. Fit scaler on training only.
+scaler = MinMaxScaler() #scale features between 0 and 1
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
+
+# Reshape
+x_train1 = x_train.reshape(ntrain,10,6,1)
+x_test1 = x_test.reshape(ntest,10,6,1)
+
+#Create labels as one-hot vectors
+labels_train = tf.keras.utils.to_categorical(y_train)
+labels_test = tf.keras.utils.to_categorical(y_test)
+
+def CNN():
+
+    model = tf.keras.models.Sequential()
+    #1st hidden: Set up the first conv layer
+    model.add(Conv2D(256,(3,3),activation="relu",input_shape=(10,6,1),padding='same'))
+    #2nd hidden: Set up the first maxpooling layer
+    model.add(MaxPooling2D(pool_size=(2,2)))
+    #3rd hidden: Set up the second conv layer
+    model.add(Conv2D(128,(3,3),activation="relu",padding='same'))
+    #4th hidden: Set up the second maxpooling layer
+    model.add(MaxPooling2D(pool_size=(2,2)))
+    #5th hidden: Set up the flatten layer
+    model.add(Flatten())
+    #6th hidden: Set up the first dense layer
+    model.add(Dense(100,activation='sigmoid'))
+    #7th hidden: Set up the second dense layer
+    model.add(Dense(100,activation='softmax'))
+    #Output: Set up the third dense layer
+    model.add(Dense(10,activation='tanh'))
+    model.add(Dense(2,activation='tanh'))
+    
+    return model
+
+#Compile and train the model
+CNN = CNN()
+CNN.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+print(CNN.summary())
+history = CNN.fit(x_train1, labels_train, epochs=20, batch_size=100, shuffle=True)
+scores = CNN.evaluate(x_test1, labels_test)
+print("Accuracy: %.2f%%" %(scores[1]*100))
+
+#####################################################################
+# Testing the model on a specified tweet
+#####################################################################
+def sentiment_cnn(tweet_text):
+    encoded_text = [vocab_to_int[word] for word in tweet_text.split()]
+    padded_text = np.zeros((1, tweet_length), dtype=int)
+    padded_text[0,:len(encoded_text):] = np.array(encoded_text)
+    padded_text = padded_text.reshape(1,10,6,1)
+    l = list(CNN.predict(padded_text))
+    return 'positive/neutal' if l.index(max(l))==0 else 'negative'
+
+ind = np.random.randint(len(encoded_tweets))
+tweet_text = tweet.text[ind]
+print('tweet text:',tweet_text)
+print('The analysis of tweet sentiment:',sentiment_cnn(tweet_text))
