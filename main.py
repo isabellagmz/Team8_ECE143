@@ -17,7 +17,7 @@ import sentiment_lib
 # Parsing the entire dataset
 #####################################################################
 df2 = []
-for dirname, _, filenames in os.walk('/Users/isabellagomez/Documents/ECE143/Final Project/archive'):
+for dirname, _, filenames in os.walk('input'):
     for filename in filenames:
         if (filename.endswith('Tweets.CSV')):
             df2.append(pd.read_csv(os.path.join(dirname, filename), header=0, skiprows=lambda i: i!=0 and (i) % 50 != 0))
